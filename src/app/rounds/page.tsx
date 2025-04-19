@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
-import { FiArrowLeft, FiFilter, FiCalendar, FiMapPin } from 'react-icons/fi';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
@@ -104,7 +103,6 @@ const RoundsPage = () => {
             onClick={() => router.push('/dashboard')}
             className="mr-4 hover:bg-gray-100 p-2 rounded-full transition-colors"
           >
-            <FiArrowLeft className="w-6 h-6" />
           </button>
           <h1 className="text-xl font-bold text-gray-800">My Rounds</h1>
         </div>
@@ -114,7 +112,6 @@ const RoundsPage = () => {
         {/* Filters */}
         <div className="flex items-center gap-4 mb-6">
           <div className="flex items-center gap-2">
-            <FiFilter className="w-5 h-5 text-gray-500" />
             <select
               value={filterYear}
               onChange={(e) => setFilterYear(e.target.value)}
@@ -161,7 +158,6 @@ const RoundsPage = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-800">{round.course_name}</h3>
                     <div className="flex items-center gap-1 text-sm text-gray-500">
-                      <FiCalendar className="w-4 h-4" />
                       <span>{formatDate(round.date_played)}</span>
                     </div>
                   </div>
