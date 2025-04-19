@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
-import { FiArrowLeft, FiImage, FiCheck, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiImage, FiCheck, FiX, FiEdit2 } from 'react-icons/fi';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
@@ -28,6 +28,7 @@ const ScanCard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [analyzedData, setAnalyzedData] = useState<ScoreCardData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingSection, setEditingSection] = useState<'details' | 'holes' | null>(null);
   const router = useRouter();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,16 +65,36 @@ const ScanCard = () => {
     }
   };
 
+  const updateHoleData = (index: number, field: keyof HoleData, value: HoleData[keyof HoleData]) => {
+    if (!analyzedData) return;
+
+    const newHoles = [...analyzedData.holes];
+    newHoles[index] = {
+      ...newHoles[index],
+      [field]: value
+    };
+
+    setAnalyzedData({
+      ...analyzedData,
+      holes: newHoles
+    });
+  };
+
+  const calculateSummary = (holes: HoleData[]) => {
+    return {
+      totalScore: holes.reduce((sum, hole) => sum + (hole.score || 0), 0),
+      totalPutts: holes.reduce((sum, hole) => sum + (hole.putts || 0), 0),
+      fairwaysHit: holes.filter(hole => hole.fairwayHit).length,
+      greensInRegulation: holes.filter(hole => hole.greenInRegulation).length
+    };
+  };
+
   const handleSaveRound = async () => {
     if (!analyzedData) return;
 
     setIsSaving(true);
     try {
-      // Calculate totals
-      const totalScore = analyzedData.holes.reduce((sum, hole) => sum + (hole.score || 0), 0);
-      const totalPutts = analyzedData.holes.reduce((sum, hole) => sum + (hole.putts || 0), 0);
-      const fairwaysHit = analyzedData.holes.filter(hole => hole.fairwayHit).length;
-      const greensInRegulation = analyzedData.holes.filter(hole => hole.greenInRegulation).length;
+      const summary = calculateSummary(analyzedData.holes);
 
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
@@ -84,10 +105,10 @@ const ScanCard = () => {
         user_id: userData.user.id,
         course_name: analyzedData.courseName,
         date_played: analyzedData.date || new Date().toISOString().split('T')[0],
-        total_score: totalScore,
-        total_putts: totalPutts,
-        fairways_hit: fairwaysHit,
-        greens_in_regulation: greensInRegulation,
+        total_score: summary.totalScore,
+        total_putts: summary.totalPutts,
+        fairways_hit: summary.fairwaysHit,
+        greens_in_regulation: summary.greensInRegulation,
         hole_data: analyzedData.holes
       });
 
@@ -104,25 +125,25 @@ const ScanCard = () => {
 
   const handleRetry = () => {
     setAnalyzedData(null);
+    setEditingSection(null);
   };
 
-  return (
-    <div className="min-h-screen bg-white">
-      <div className="bg-white shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center">
-          <button 
-            onClick={() => router.push('/dashboard')}
-            className="mr-4 hover:bg-gray-100 p-2 rounded-full transition-colors"
-          >
-            <FiArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-xl font-bold text-gray-800">Scan Scorecard</h1>
+  if (!analyzedData) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="bg-white shadow-sm">
+          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center">
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="mr-4 hover:bg-gray-100 p-2 rounded-full transition-colors"
+            >
+              <FiArrowLeft className="w-6 h-6" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-800">Scan Scorecard</h1>
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-2xl mx-auto p-6">
-        {!analyzedData ? (
-          // Upload UI
+        <div className="max-w-2xl mx-auto p-6">
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-2xl font-semibold text-green-700 mb-2">Upload Scorecard</h2>
             <p className="text-gray-600 mb-6">Upload a photo of your scorecard for automatic processing.</p>
@@ -160,157 +181,307 @@ const ScanCard = () => {
               </div>
             )}
           </div>
-        ) : (
-          // Preview UI
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-800">Analyzed Results</h2>
-                  <p className="text-gray-600">Please verify the information below</p>
-                </div>
+        </div>
+      </div>
+    );
+  }
+
+  const summary = calculateSummary(analyzedData.holes);
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="bg-white shadow-sm">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center">
+          <button 
+            onClick={() => router.push('/dashboard')}
+            className="mr-4 hover:bg-gray-100 p-2 rounded-full transition-colors"
+          >
+            <FiArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-800">Scan Scorecard</h1>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">Round Details</h2>
+                <p className="text-gray-600">Review and verify the information below</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditingSection(editingSection === 'details' ? null : 'details')}
+                  className="text-gray-600 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100"
+                >
+                  <FiEdit2 className="w-5 h-5" />
+                </button>
                 <button
                   onClick={handleRetry}
-                  className="text-gray-600 hover:text-gray-800"
+                  className="text-gray-600 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100"
                 >
-                  <FiX className="w-6 h-6" />
+                  <FiX className="w-5 h-5" />
                 </button>
               </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Course Name</label>
-                  <p className="mt-1 text-lg">{analyzedData.courseName || 'Not detected'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Date Played</label>
-                  <p className="mt-1 text-lg">{analyzedData.date || 'Not detected'}</p>
-                </div>
-              </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4">Score Summary</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Total Score</label>
-                  <p className="mt-1 text-lg">
-                    {analyzedData.holes.reduce((sum, hole) => sum + (hole.score || 0), 0)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Total Putts</label>
-                  <p className="mt-1 text-lg">
-                    {analyzedData.holes.reduce((sum, hole) => sum + (hole.putts || 0), 0)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Fairways Hit</label>
-                  <p className="mt-1 text-lg">
-                    {analyzedData.holes.filter(hole => hole.fairwayHit).length}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Greens in Regulation</label>
-                  <p className="mt-1 text-lg">
-                    {analyzedData.holes.filter(hole => hole.greenInRegulation).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold mb-4">Hole-by-Hole Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Front Nine */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-700 mb-3">Front Nine</h4>
-                  <div className="space-y-3">
-                    {analyzedData.holes.slice(0, 9).map((hole, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <div className="font-medium">Hole {index + 1}</div>
-                        <div className="flex gap-4">
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">Score</div>
-                            <div className="font-medium">{hole.score || '-'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">Putts</div>
-                            <div className="font-medium">{hole.putts || '-'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">FIR</div>
-                            <div>{hole.fairwayHit ? '✓' : '×'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">GIR</div>
-                            <div>{hole.greenInRegulation ? '✓' : '×'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Back Nine */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-700 mb-3">Back Nine</h4>
-                  <div className="space-y-3">
-                    {analyzedData.holes.slice(9).map((hole, index) => (
-                      <div key={index + 9} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <div className="font-medium">Hole {index + 10}</div>
-                        <div className="flex gap-4">
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">Score</div>
-                            <div className="font-medium">{hole.score || '-'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">Putts</div>
-                            <div className="font-medium">{hole.putts || '-'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">FIR</div>
-                            <div>{hole.fairwayHit ? '✓' : '×'}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">GIR</div>
-                            <div>{hole.greenInRegulation ? '✓' : '×'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={handleRetry}
-                className="px-6 py-3 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={handleSaveRound}
-                disabled={isSaving}
-                className="px-6 py-3 bg-green-700 text-white rounded-full hover:bg-green-800 flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    <span>Saving...</span>
-                  </>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Course Name</label>
+                {editingSection === 'details' ? (
+                  <input
+                    type="text"
+                    value={analyzedData.courseName || ''}
+                    onChange={(e) => setAnalyzedData({
+                      ...analyzedData,
+                      courseName: e.target.value || null
+                    })}
+                    className="mt-1 block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    placeholder="Enter course name"
+                  />
                 ) : (
-                  <>
-                    <FiCheck className="w-5 h-5" />
-                    <span>Save Round</span>
-                  </>
+                  <p className="mt-1 text-lg">{analyzedData.courseName || 'Not detected'}</p>
                 )}
-              </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Date Played</label>
+                {editingSection === 'details' ? (
+                  <input
+                    type="date"
+                    value={analyzedData.date || new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setAnalyzedData({
+                      ...analyzedData,
+                      date: e.target.value
+                    })}
+                    className="mt-1 block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  />
+                ) : (
+                  <p className="mt-1 text-lg">{analyzedData.date || 'Not detected'}</p>
+                )}
+              </div>
             </div>
           </div>
-        )}
+
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h3 className="text-lg font-semibold mb-4">Score Summary</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Total Score</label>
+                <p className="mt-1 text-lg font-medium text-gray-900">{summary.totalScore}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Total Putts</label>
+                <p className="mt-1 text-lg font-medium text-gray-900">{summary.totalPutts}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Fairways Hit</label>
+                <p className="mt-1 text-lg font-medium text-gray-900">{summary.fairwaysHit}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Greens in Regulation</label>
+                <p className="mt-1 text-lg font-medium text-gray-900">{summary.greensInRegulation}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold">Hole-by-Hole Details</h3>
+              <button
+                onClick={() => setEditingSection(editingSection === 'holes' ? null : 'holes')}
+                className="text-gray-600 hover:text-gray-800 p-2 rounded-full hover:bg-gray-100"
+              >
+                <FiEdit2 className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Front Nine */}
+              <div>
+                <h4 className="text-md font-medium text-gray-700 mb-3">Front Nine</h4>
+                <div className="space-y-4">
+                  {analyzedData.holes.slice(0, 9).map((hole, index) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="font-medium mb-3">Hole {index + 1}</div>
+                      {editingSection === 'holes' ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Score</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="19"
+                              value={hole.score || ''}
+                              onChange={(e) => updateHoleData(index, 'score', e.target.value ? parseInt(e.target.value) : null)}
+                              className="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Putts</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="9"
+                              value={hole.putts || ''}
+                              onChange={(e) => updateHoleData(index, 'putts', e.target.value ? parseInt(e.target.value) : null)}
+                              className="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-3 mt-2">
+                            <label className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                checked={hole.fairwayHit || false}
+                                onChange={(e) => updateHoleData(index, 'fairwayHit', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="text-sm text-gray-700">Fairway Hit</span>
+                            </label>
+                            <label className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                checked={hole.greenInRegulation || false}
+                                onChange={(e) => updateHoleData(index, 'greenInRegulation', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="text-sm text-gray-700">Green in Regulation</span>
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <div className="text-sm text-gray-500">Score</div>
+                            <div className="font-medium text-lg">{hole.score || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Putts</div>
+                            <div className="font-medium text-lg">{hole.putts || '-'}</div>
+                          </div>
+                          <div className="col-span-2 space-y-2 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="text-green-600">{hole.fairwayHit ? '✓' : '×'}</div>
+                              <div className="text-sm text-gray-700">Fairway Hit</div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="text-green-600">{hole.greenInRegulation ? '✓' : '×'}</div>
+                              <div className="text-sm text-gray-700">Green in Regulation</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Back Nine */}
+              <div>
+                <h4 className="text-md font-medium text-gray-700 mb-3">Back Nine</h4>
+                <div className="space-y-4">
+                  {analyzedData.holes.slice(9).map((hole, index) => (
+                    <div key={index + 9} className="bg-gray-50 p-4 rounded-lg">
+                      <div className="font-medium mb-3">Hole {index + 10}</div>
+                      {editingSection === 'holes' ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Score</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="19"
+                              value={hole.score || ''}
+                              onChange={(e) => updateHoleData(index + 9, 'score', e.target.value ? parseInt(e.target.value) : null)}
+                              className="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Putts</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="9"
+                              value={hole.putts || ''}
+                              onChange={(e) => updateHoleData(index + 9, 'putts', e.target.value ? parseInt(e.target.value) : null)}
+                              className="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-3 mt-2">
+                            <label className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                checked={hole.fairwayHit || false}
+                                onChange={(e) => updateHoleData(index + 9, 'fairwayHit', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="text-sm text-gray-700">Fairway Hit</span>
+                            </label>
+                            <label className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                checked={hole.greenInRegulation || false}
+                                onChange={(e) => updateHoleData(index + 9, 'greenInRegulation', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="text-sm text-gray-700">Green in Regulation</span>
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <div className="text-sm text-gray-500">Score</div>
+                            <div className="font-medium text-lg">{hole.score || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-gray-500">Putts</div>
+                            <div className="font-medium text-lg">{hole.putts || '-'}</div>
+                          </div>
+                          <div className="col-span-2 space-y-2 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="text-green-600">{hole.fairwayHit ? '✓' : '×'}</div>
+                              <div className="text-sm text-gray-700">Fairway Hit</div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="text-green-600">{hole.greenInRegulation ? '✓' : '×'}</div>
+                              <div className="text-sm text-gray-700">Green in Regulation</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-4">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={handleSaveRound}
+              disabled={isSaving}
+              className="px-6 py-3 bg-green-700 text-white rounded-full hover:bg-green-800 flex items-center gap-2"
+            >
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FiCheck className="w-5 h-5" />
+                  <span>Save Round</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
