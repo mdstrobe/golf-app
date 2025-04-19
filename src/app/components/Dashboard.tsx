@@ -5,11 +5,13 @@ import { FiBell, FiCamera, FiBarChart2, FiTarget, FiCalendar, FiTrendingUp, FiUs
 import { GiTrophyCup } from 'react-icons/gi';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
+import { calculateHandicap, calculateAverageScore, calculateHandicapTrend } from '@/utils/golfStats';
+import { Database } from '@/types/database.types';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 interface UserData {
   username: string;
@@ -17,6 +19,7 @@ interface UserData {
   handicap: number;
   roundsPlayed: number;
   avgScore: number;
+  handicapTrend: 'improving' | 'steady' | 'declining';
 }
 
 const Dashboard: React.FC = () => {
@@ -42,20 +45,31 @@ const Dashboard: React.FC = () => {
           return;
         }
 
-        // In a real app, you would fetch this data from your database
-        // For now, we'll use the email and some placeholder data
-        const response: UserData = {
-          username: email.split('@')[0], // Use the part before @ as username
-          email: email,
-          handicap: 14.2,
-          roundsPlayed: 24,
-          avgScore: 82
-        };
+        // Fetch user's rounds
+        const { data: rounds, error: roundsError } = await supabase
+          .from('rounds')
+          .select('total_score, date_played')
+          .order('date_played', { ascending: false });
 
-        setUserData(response);
+        if (roundsError) throw roundsError;
+
+        const safeRounds = rounds || [];
+        
+        // Calculate stats
+        const handicap = calculateHandicap(safeRounds);
+        const avgScore = calculateAverageScore(safeRounds);
+        const handicapTrend = calculateHandicapTrend(safeRounds);
+
+        setUserData({
+          username: email.split('@')[0],
+          email: email,
+          handicap: handicap,
+          roundsPlayed: safeRounds.length,
+          avgScore: avgScore,
+          handicapTrend: handicapTrend
+        });
       } catch (error) {
         console.error('Error fetching user data:', error);
-        router.push('/login');
       } finally {
         setLoading(false);
       }
@@ -80,10 +94,57 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  if (loading || !userData) {
-    return <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
-      <div className="text-green-700">Loading...</div>
-    </div>;
+  const renderHandicapTrend = () => {
+    if (!userData) return null;
+
+    const trend = userData.handicapTrend || 'steady';
+    const trendColor = trend === 'improving' ? 'text-green-600' :
+                      trend === 'declining' ? 'text-red-600' :
+                      'text-gray-600';
+
+    return (
+      <div className="flex items-center justify-center gap-2">
+        <FiTrendingUp className={`w-5 h-5 ${trendColor}`} />
+        <p className={`text-xl font-bold ${trendColor}`}>
+          {trend.charAt(0).toUpperCase() + trend.slice(1)}
+        </p>
+      </div>
+    );
+  };
+
+  // Welcome section with null check
+  const renderWelcomeSection = () => {
+    if (!userData) return null;
+    return (
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-800">Welcome back, {userData.username}</h2>
+        <p className="text-gray-600">Current Handicap: {userData.handicap}</p>
+      </div>
+    );
+  };
+
+  // Profile section with null check
+  const renderProfileHeader = () => {
+    if (!userData) return null;
+    return (
+      <div className="flex items-center space-x-4 mb-8">
+        <div className="w-20 h-20 bg-green-700 rounded-full flex items-center justify-center shadow-sm">
+          <span className="text-white text-3xl font-medium">{userData.username[0].toUpperCase()}</span>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">{userData.username}</h2>
+          <p className="text-gray-600">{userData.email}</p>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
+        <div className="text-green-700">Loading...</div>
+      </div>
+    );
   }
 
   return (
@@ -117,7 +178,9 @@ const Dashboard: React.FC = () => {
               onClick={handleProfileClick}
               className="w-8 h-8 bg-green-700 rounded-full flex items-center justify-center hover:bg-green-800 transition-colors"
             >
-              <span className="text-white text-sm font-medium">{userData.username[0].toUpperCase()}</span>
+              <span className="text-white text-sm font-medium">
+                {userData?.username?.[0].toUpperCase() || 'U'}
+              </span>
             </button>
           </div>
         </div>
@@ -148,30 +211,21 @@ const Dashboard: React.FC = () => {
             </button>
           </div>
           
-          {/* Profile Header */}
-          <div className="flex items-center space-x-4 mb-8">
-            <div className="w-20 h-20 bg-green-700 rounded-full flex items-center justify-center shadow-sm">
-              <span className="text-white text-3xl font-medium">{userData.username[0].toUpperCase()}</span>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">{userData.username}</h2>
-              <p className="text-gray-600">{userData.email}</p>
-            </div>
-          </div>
+          {renderProfileHeader()}
 
           {/* Quick Stats */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="bg-gray-50 rounded-xl p-4 text-center">
               <p className="text-sm text-gray-600 mb-1">Handicap</p>
-              <p className="text-2xl font-bold text-gray-800">{userData.handicap}</p>
+              <p className="text-2xl font-bold text-gray-800">{userData?.handicap || 0}</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-4 text-center">
               <p className="text-sm text-gray-600 mb-1">Rounds</p>
-              <p className="text-2xl font-bold text-gray-800">{userData.roundsPlayed}</p>
+              <p className="text-2xl font-bold text-gray-800">{userData?.roundsPlayed || 0}</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-4 text-center">
               <p className="text-sm text-gray-600 mb-1">Avg Score</p>
-              <p className="text-2xl font-bold text-gray-800">{userData.avgScore}</p>
+              <p className="text-2xl font-bold text-gray-800">{userData?.avgScore || 0}</p>
             </div>
           </div>
 
@@ -221,11 +275,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-6">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">Welcome back, {userData.username}</h2>
-          <p className="text-gray-600">Current Handicap: {userData.handicap}</p>
-        </div>
+        {renderWelcomeSection()}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -260,18 +310,15 @@ const Dashboard: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             <div className="text-center">
               <p className="text-gray-600 mb-1">Rounds Played</p>
-              <p className="text-3xl font-bold text-gray-800">{userData.roundsPlayed}</p>
+              <p className="text-3xl font-bold text-gray-800">{userData?.roundsPlayed || 0}</p>
             </div>
             <div className="text-center">
               <p className="text-gray-600 mb-1">Average Score</p>
-              <p className="text-3xl font-bold text-gray-800">{userData.avgScore}</p>
+              <p className="text-3xl font-bold text-gray-800">{userData?.avgScore || 0}</p>
             </div>
             <div className="text-center col-span-2 md:col-span-1">
               <p className="text-gray-600 mb-1">Handicap Trend</p>
-              <div className="flex items-center justify-center gap-2 text-green-600">
-                <FiTrendingUp className="w-5 h-5" />
-                <p className="text-xl font-bold">Improving</p>
-              </div>
+              {renderHandicapTrend()}
             </div>
           </div>
         </div>

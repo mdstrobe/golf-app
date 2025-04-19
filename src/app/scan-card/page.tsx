@@ -3,13 +3,8 @@
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { FiArrowLeft, FiImage, FiCheck, FiX, FiEdit2 } from 'react-icons/fi';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { saveRoundData } from '@/utils/supabase';
+import { ScannedRoundData } from '@/types/database.types';
 
 interface HoleData {
   score: number | null;
@@ -35,8 +30,7 @@ const ScanCard = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check file size
-    if (file.size > 10 * 1024 * 1024) { // 10MB
+    if (file.size > 10 * 1024 * 1024) {
       alert('File size must be less than 10MB');
       return;
     }
@@ -90,29 +84,40 @@ const ScanCard = () => {
   };
 
   const handleSaveRound = async () => {
-    if (!analyzedData) return;
+    if (!analyzedData || !analyzedData.courseName || !analyzedData.date) {
+      alert('Please ensure course name and date are filled out');
+      return;
+    }
+
+    // Validate hole data
+    const invalidHoles = analyzedData.holes.some(hole => 
+      hole.score === null || hole.score < 1
+    );
+
+    if (invalidHoles) {
+      alert('Please ensure all holes have valid scores');
+      return;
+    }
 
     setIsSaving(true);
     try {
-      const summary = calculateSummary(analyzedData.holes);
-
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        throw new Error('Not authenticated');
-      }
-
-      const { error } = await supabase.from('rounds').insert({
-        user_id: userData.user.id,
+      // Convert to ScannedRoundData format
+      const roundData: ScannedRoundData = {
         course_name: analyzedData.courseName,
-        date_played: analyzedData.date || new Date().toISOString().split('T')[0],
-        total_score: summary.totalScore,
-        total_putts: summary.totalPutts,
-        fairways_hit: summary.fairwaysHit,
-        greens_in_regulation: summary.greensInRegulation,
-        hole_data: analyzedData.holes
-      });
+        date_played: analyzedData.date,
+        holes: analyzedData.holes.map(hole => ({
+          score: hole.score!,
+          putts: hole.putts || undefined,
+          fairway_hit: hole.fairwayHit || undefined,
+          green_in_regulation: hole.greenInRegulation || undefined
+        }))
+      };
 
-      if (error) throw error;
+      const result = await saveRoundData(roundData);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save round');
+      }
 
       router.push('/dashboard');
     } catch (error) {
