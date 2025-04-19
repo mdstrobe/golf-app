@@ -181,6 +181,18 @@ const ScanCard = () => {
               </div>
             )}
           </div>
+          {/* New Section for Model Info and Manual Entry Link */}
+          <div className="text-center text-sm text-gray-600 mt-6">
+            <p>
+              Scorecard analyzed using Gemini 1.5 Flash. Prefer to enter scores manually?{' '}
+              <button
+                onClick={() => router.push('/basic')}
+                className="text-green-600 hover:underline focus:outline-none"
+              >
+                Click here
+              </button>.
+            </p>
+          </div>
         </div>
       </div>
     );
