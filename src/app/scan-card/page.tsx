@@ -1,10 +1,23 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FiArrowLeft, FiImage, FiCheck, FiX, FiEdit2 } from 'react-icons/fi';
 import { saveRoundData } from '@/utils/supabase';
 import { ScannedRoundData } from '@/types/database.types';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface Course {
+  id: number;
+  name: string;
+  city: string;
+  state: string;
+}
 
 interface HoleData {
   score: number | null;
@@ -20,11 +33,87 @@ interface ScoreCardData {
 }
 
 const ScanCard = () => {
+  const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [analyzedData, setAnalyzedData] = useState<ScoreCardData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editingSection, setEditingSection] = useState<'details' | 'holes' | null>(null);
-  const router = useRouter();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch all courses on component mount
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select('id, name, city, state')
+          .order('name');
+          
+        if (error) {
+          console.error('Error fetching courses:', error);
+          return;
+        }
+        
+        setCourses(data || []);
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
+
+  // Filter courses when user types
+  useEffect(() => {
+    if (!analyzedData?.courseName || analyzedData.courseName.trim() === '') {
+      setFilteredCourses([]);
+      return;
+    }
+    
+    const filtered = courses.filter(course => 
+      course.name.toLowerCase().includes(analyzedData.courseName!.toLowerCase())
+    );
+    setFilteredCourses(filtered);
+  }, [analyzedData?.courseName, courses]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleCourseNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!analyzedData) return;
+    setAnalyzedData({
+      ...analyzedData,
+      courseName: e.target.value || null
+    });
+    setShowDropdown(true);
+  };
+
+  const handleCourseSelect = (course: Course) => {
+    if (!analyzedData) return;
+    setAnalyzedData({
+      ...analyzedData,
+      courseName: course.name
+    });
+    setShowDropdown(false);
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -61,6 +150,14 @@ const ScanCard = () => {
 
   const updateHoleData = (index: number, field: keyof HoleData, value: HoleData[keyof HoleData]) => {
     if (!analyzedData) return;
+
+    // Validate numeric values
+    if (field === 'score' && typeof value === 'number') {
+      if (value < 1 || value > 20) return; // Reject unrealistic scores
+    }
+    if (field === 'putts' && typeof value === 'number') {
+      if (value < 0 || value > 10) return; // Reject unrealistic putt counts
+    }
 
     const newHoles = [...analyzedData.holes];
     newHoles[index] = {
@@ -247,16 +344,43 @@ const ScanCard = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Course Name</label>
                 {editingSection === 'details' ? (
-                  <input
-                    type="text"
-                    value={analyzedData.courseName || ''}
-                    onChange={(e) => setAnalyzedData({
-                      ...analyzedData,
-                      courseName: e.target.value || null
-                    })}
-                    className="mt-1 block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                    placeholder="Enter course name"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={analyzedData.courseName || ''}
+                      onChange={handleCourseNameChange}
+                      onFocus={() => setShowDropdown(true)}
+                      className="mt-1 block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                      placeholder="Enter or select course name"
+                    />
+                    {showDropdown && (
+                      <div 
+                        ref={dropdownRef}
+                        className="absolute z-10 w-full mt-1 bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto"
+                      >
+                        {isLoading ? (
+                          <div className="px-4 py-2 text-sm text-gray-500">Loading courses...</div>
+                        ) : filteredCourses.length > 0 ? (
+                          filteredCourses.map((course) => (
+                            <div
+                              key={course.id}
+                              onClick={() => handleCourseSelect(course)}
+                              className="cursor-pointer px-4 py-2 hover:bg-gray-100 text-gray-900"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{course.name}</span>
+                                <span className="text-sm text-gray-400">
+                                  {course.city}, {course.state}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : analyzedData.courseName?.trim() !== '' ? (
+                          <div className="px-4 py-2 text-sm text-gray-500">No courses found</div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <p className="mt-1 text-lg">{analyzedData.courseName || 'Not detected'}</p>
                 )}
