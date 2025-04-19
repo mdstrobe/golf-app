@@ -53,6 +53,17 @@ const NewRound = () => {
             </div>
           </div>
         </div>
+        <div className="text-center text-sm text-gray-600 mt-6">
+            <p>
+              Looking to speed up your round entry? Try our new scanning option?{' '}
+              <button
+                onClick={() => router.push('/scan-card')}
+                className="text-green-600 hover:underline focus:outline-none"
+              >
+                Click here
+              </button>.
+            </p>
+          </div>
       </div>
     </div>
   );

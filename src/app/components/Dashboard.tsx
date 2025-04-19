@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { FiBell, FiCamera, FiBarChart2, FiTarget, FiCalendar, FiTrendingUp } from 'react-icons/fi';
+import { FiBell, FiCamera, FiBarChart2, FiTarget, FiCalendar, FiTrendingUp, FiUser, FiChevronRight, FiLogOut, FiX } from 'react-icons/fi';
 import { GiTrophyCup } from 'react-icons/gi';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
@@ -22,6 +22,8 @@ interface UserData {
 const Dashboard: React.FC = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -70,6 +72,18 @@ const Dashboard: React.FC = () => {
     router.push('/login');
   };
 
+  const handleProfileClick = () => {
+    setIsProfileOpen(!isProfileOpen);
+    setIsAnimating(true);
+  };
+
+  const handleAnimationEnd = () => {
+    setIsAnimating(false);
+    if (!isProfileOpen) {
+      setIsAnimating(false);
+    }
+  };
+
   if (loading || !userData) {
     return <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
       <div className="text-green-700">Loading...</div>
@@ -77,7 +91,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white relative">
       {/* Top Bar */}
       <div className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -104,10 +118,107 @@ const Dashboard: React.FC = () => {
               <FiBell className="w-5 h-5 text-gray-600" />
             </button>
             <button 
-              onClick={handleSignOut}
+              onClick={handleProfileClick}
               className="w-8 h-8 bg-green-700 rounded-full flex items-center justify-center hover:bg-green-800 transition-colors"
             >
               <span className="text-white text-sm font-medium">{userData.username[0].toUpperCase()}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Panel */}
+      <div 
+        className={`fixed inset-0 transition-opacity duration-300 ${
+          isProfileOpen ? 'opacity-100 z-40' : 'opacity-0 -z-10'
+        }`}
+        onClick={() => setIsProfileOpen(false)}
+      />
+      <div 
+        className={`fixed inset-x-0 top-4 bottom-0 bg-white rounded-t-3xl shadow-lg z-50 transform transition-transform duration-300 ease-out ${
+          isProfileOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}
+        onTransitionEnd={handleAnimationEnd}
+      >
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          {/* Handle Bar and Close Button */}
+          <div className="relative flex justify-center mb-6">
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+            <button 
+              onClick={() => setIsProfileOpen(false)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <FiX className="w-6 h-6 text-gray-600" />
+            </button>
+          </div>
+          
+          {/* Profile Header */}
+          <div className="flex items-center space-x-4 mb-8">
+            <div className="w-20 h-20 bg-green-700 rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-white text-3xl font-medium">{userData.username[0].toUpperCase()}</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">{userData.username}</h2>
+              <p className="text-gray-600">{userData.email}</p>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600 mb-1">Handicap</p>
+              <p className="text-2xl font-bold text-gray-800">{userData.handicap}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600 mb-1">Rounds</p>
+              <p className="text-2xl font-bold text-gray-800">{userData.roundsPlayed}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <p className="text-sm text-gray-600 mb-1">Avg Score</p>
+              <p className="text-2xl font-bold text-gray-800">{userData.avgScore}</p>
+            </div>
+          </div>
+
+          {/* Profile Actions */}
+          <div className="space-y-3">
+            <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+              <div className="flex items-center space-x-3">
+                <FiUser className="w-6 h-6 text-gray-600" />
+                <span className="font-medium text-gray-800 text-lg">Edit Profile</span>
+              </div>
+              <FiChevronRight className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <button 
+              onClick={() => router.push('/rounds')}
+              className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <FiCalendar className="w-6 h-6 text-gray-600" />
+                <span className="font-medium text-gray-800 text-lg">My Rounds</span>
+              </div>
+              <FiChevronRight className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <button 
+              onClick={() => router.push('/performance')}
+              className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <FiBarChart2 className="w-6 h-6 text-gray-600" />
+                <span className="font-medium text-gray-800 text-lg">Performance Stats</span>
+              </div>
+              <FiChevronRight className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <button 
+              onClick={handleSignOut}
+              className="w-full flex items-center justify-between p-4 bg-red-50 rounded-xl hover:bg-red-100 transition-colors text-red-600 mt-6"
+            >
+              <div className="flex items-center space-x-3">
+                <FiLogOut className="w-6 h-6" />
+                <span className="font-medium text-lg">Sign Out</span>
+              </div>
             </button>
           </div>
         </div>

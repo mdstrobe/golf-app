@@ -186,7 +186,7 @@ const ScanCard = () => {
             <p>
               Scorecard analyzed using Gemini 1.5 Flash. Prefer to enter scores manually?{' '}
               <button
-                onClick={() => router.push('/basic')}
+                onClick={() => router.push('/round/new')}
                 className="text-green-600 hover:underline focus:outline-none"
               >
                 Click here
