@@ -8,6 +8,20 @@ if (!apiKey) {
   throw new Error('Missing Google AI API key. Please set GOOGLE_AI_API_KEY in .env.local or Vercel.');
 }
 
+interface HoleData {
+  score: number | null;
+  putts: number | null;
+  fairwayHit: boolean | null;
+  greenInRegulation: boolean | null;
+}
+
+interface RawHoleData {
+  score?: number | null;
+  putts?: number | null;
+  fairwayHit?: boolean | null;
+  greenInRegulation?: boolean | null;
+}
+
 const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -106,7 +120,7 @@ export async function POST(request: Request) {
       }
 
       // Validate and clean each hole's data
-      analysisData.holes = analysisData.holes.map((hole: any, index: number) => {
+      analysisData.holes = analysisData.holes.map((hole: RawHoleData): HoleData => {
         const score = typeof hole.score === 'number' && hole.score > 0 && hole.score < 20 ? hole.score : null;
         const putts = typeof hole.putts === 'number' && hole.putts >= 0 && hole.putts < 10 ? hole.putts : null;
         

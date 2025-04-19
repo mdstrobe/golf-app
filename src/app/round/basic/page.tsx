@@ -4,6 +4,13 @@ import { useRouter } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { FiArrowLeft } from 'react-icons/fi';
 
+interface HoleData {
+  score: number | null;
+  putts: number | null;
+  fairwayHit: boolean | null;
+  greenInRegulation: boolean | null;
+}
+
 const BasicRound = () => {
   const router = useRouter();
   const [roundData, setRoundData] = useState({
@@ -20,15 +27,15 @@ const BasicRound = () => {
     const savedData = localStorage.getItem('scorecard_data');
     if (savedData) {
       const parsedData = JSON.parse(savedData);
-      const holes = parsedData.holes || [];
+      const holes: HoleData[] = parsedData.holes || [];
       
       setRoundData({
         date: parsedData.date || new Date().toISOString().split('T')[0],
         courseName: parsedData.courseName || '',
-        totalScore: holes.reduce((sum: number, hole: any) => sum + (hole.score || 0), 0).toString(),
-        totalPutts: holes.reduce((sum: number, hole: any) => sum + (hole.putts || 0), 0).toString(),
-        fairwaysHit: holes.filter((hole: any) => hole.fairwayHit).length.toString(),
-        greensInRegulation: holes.filter((hole: any) => hole.greenInRegulation).length.toString()
+        totalScore: holes.reduce((sum: number, hole: HoleData) => sum + (hole.score || 0), 0).toString(),
+        totalPutts: holes.reduce((sum: number, hole: HoleData) => sum + (hole.putts || 0), 0).toString(),
+        fairwaysHit: holes.filter((hole: HoleData) => hole.fairwayHit).length.toString(),
+        greensInRegulation: holes.filter((hole: HoleData) => hole.greenInRegulation).length.toString()
       });
 
       // Clear the stored data
