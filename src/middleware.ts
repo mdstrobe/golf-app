@@ -10,7 +10,6 @@ export async function middleware(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const error = searchParams.get('error');
   const errorCode = searchParams.get('error_code');
-  const errorDescription = searchParams.get('error_description');
   const redirectTo = searchParams.get('redirect_to');
 
   // If there's an error in the URL but it's an OTP expired error
