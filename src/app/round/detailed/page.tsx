@@ -36,7 +36,11 @@ const DetailedRound = () => {
     }
   }, []);
 
-  const updateHoleData = (index: number, field: keyof HoleData, value: any) => {
+  const updateHoleData = (
+    index: number, 
+    field: keyof HoleData, 
+    value: HoleData[keyof HoleData]
+  ) => {
     const newHoles = [...roundData.holes];
     newHoles[index] = { ...newHoles[index], [field]: value };
     setRoundData({ ...roundData, holes: newHoles });
