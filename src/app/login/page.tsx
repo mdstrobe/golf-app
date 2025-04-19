@@ -30,7 +30,7 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -38,6 +38,11 @@ const LoginPage: React.FC = () => {
     if (error) {
       setError(error.message);
     } else {
+      // Store user data
+      localStorage.setItem('userEmail', email);
+      if (data.user) {
+        localStorage.setItem('userId', data.user.id);
+      }
       router.push('/dashboard'); // Redirect to dashboard on success
     }
   };
@@ -109,7 +114,7 @@ const LoginPage: React.FC = () => {
 
       {/* Sign Up Link */}
       <p className="mt-4 text-gray-600 text-sm text-center">
-        Don’t have an account?{' '}
+        Don't have an account?{' '}
         <a href="/signup" className="underline hover:text-gray-800">Sign Up</a>
       </p>
     </div>
