@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { FiBell, FiCamera, FiBarChart2, FiTarget, FiCalendar, FiTrendingUp, FiUser, FiChevronRight, FiLogOut, FiX } from 'react-icons/fi';
+import { FiBell, FiCamera, FiBarChart2, FiTarget, FiCalendar, FiTrendingUp, FiUser, FiChevronRight, FiLogOut, FiX, FiList } from 'react-icons/fi';
 import { GiTrophyCup } from 'react-icons/gi';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
@@ -293,7 +293,14 @@ const Dashboard: React.FC = () => {
             <FiCamera className="w-5 h-5" />
             <span>Scan Card</span>
           </button>
-          <button className="bg-white border-2 border-green-700 text-green-700 p-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 transition-colors md:col-span-2">
+          <button 
+            onClick={() => router.push('/rounds')}
+            className="bg-white border-2 border-green-700 text-green-700 p-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 transition-colors"
+          >
+            <FiList className="w-5 h-5" />
+            <span>Recent Rounds</span>
+          </button>
+          <button className="bg-white border-2 border-green-700 text-green-700 p-4 rounded-lg flex items-center justify-center gap-2 hover:bg-green-50 transition-colors">
             <FiTarget className="w-5 h-5" />
             <span>Practice Session</span>
           </button>
