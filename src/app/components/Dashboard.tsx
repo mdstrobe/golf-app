@@ -23,7 +23,6 @@ const Dashboard: React.FC = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -74,13 +73,10 @@ const Dashboard: React.FC = () => {
 
   const handleProfileClick = () => {
     setIsProfileOpen(!isProfileOpen);
-    setIsAnimating(true);
   };
 
   const handleAnimationEnd = () => {
-    setIsAnimating(false);
     if (!isProfileOpen) {
-      setIsAnimating(false);
     }
   };
 
